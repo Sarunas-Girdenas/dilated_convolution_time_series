@@ -8,7 +8,7 @@ from random import shuffle
 from itertools import product
 from sklearn.preprocessing import MinMaxScaler
 
-from ml_model_files.base_dataset_loader import BaseDataLoader
+from base_dataset_loader import BaseDataLoader
 
 class TcnDataLoader(data.Dataset, BaseDataLoader):
     """
@@ -84,8 +84,10 @@ class TcnDataLoader(data.Dataset, BaseDataLoader):
         # use only required columns
         features_data = data[features].copy()
 
+        # REMOVE minMax Scaler
         scaler = MinMaxScaler()
-        transformed = scaler.fit_transform(features_data.values)
+        #transformed = scaler.fit_transform(features_data.values)
+        transformed = features_data.values
         features_data = pd.DataFrame(transformed, columns=features)
 
         self.labels = self._compute_labels(data=book_data, pairs=pairs, columns=('bidPrice', 'askPrice'))

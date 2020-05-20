@@ -1,6 +1,6 @@
 from ast import literal_eval
-from ml_model_files.tcn_data_loader import TcnDataLoader
-from ml_model_files.tcn_model import DilatedNet
+from tcn_data_loader import TcnDataLoader
+from tcn_model import DilatedNet
 import configparser
 from torch import nn
 import torch
@@ -9,18 +9,19 @@ import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score
 import optuna
 
+NUM_FEATURES = 5
+FEATURES = ['askPrice', 'bidPrice', 'bidQty/askQty', 'volume', 'priceChangePercent']
+TRAIN_SET_SIZE = 0.85
+KERNEL_SIZE = 2
+GRAD_CLIPPING_VAL = 1
+CONFIG_LOCATION = '../ml_models_for_airflow/dbs3_config.ini'
+
 # Read in config
 config = configparser.ConfigParser()
-config.read('dbs3_config.ini')
+config.read(CONFIG_LOCATION)
 
 pairs_mapping = literal_eval(config['MODEL']['pairs_mapping'])
 pairs = tuple(pairs_mapping.values())
-
-NUM_FEATURES = 5
-FEATURES = ['askPrice', 'bidPrice', 'bidQty/askQty', 'volume', 'priceChangePercent']
-TRAIN_SET_SIZE = 0.75
-KERNEL_SIZE = 2
-GRAD_CLIPPING_VAL = 1
 
 def define_model(trial):
     """
@@ -28,10 +29,10 @@ def define_model(trial):
     """
 
     dilation = trial.suggest_int('dilation', 1, 8)
-    depth = trial.suggest_int('depth', 1, 10)
+    depth = trial.suggest_int('depth', 1, 20)
 
     seq_length = trial.suggest_int('seq_length', 50, 200)
-    out_channels = trial.suggest_int('out_channels', 2, 64)
+    out_channels = trial.suggest_int('out_channels', 2, 164)
 
     return out_channels, dilation, depth, seq_length
 
@@ -44,7 +45,7 @@ def objective(trial):
     out_channels, dilation, depth, seq_length = define_model(trial)
 
     full_data_set = TcnDataLoader(
-        config_location='dbs3_config.ini',
+        config_location=CONFIG_LOCATION,
         pairs=pairs,
         seq_lenght=seq_length,
         features=FEATURES,
