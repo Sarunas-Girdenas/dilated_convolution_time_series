@@ -25,7 +25,11 @@ class DilatedNet(nn.Module):
         self.relu = nn.ReLU()
         
         # First Layer
-        self.dilated_conv1 = nn.Conv1d(num_features, out_channels, kernel_size=2, dilation=dilation)
+        self.dilated_conv1 = nn.Conv1d(
+            num_features,
+            out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation)
 
         # calculate output size for the final feed forward layer
         temp_out_shape = (seq_length + 2 * 0 - kernel_size - (kernel_size-1) * (dilation-1))/1 + 1
@@ -72,16 +76,13 @@ class DilatedNet(nn.Module):
 
     def forward(self, x):
         """
-        :param x: Pytorch Variable, batch_size x n_stocks x T
-        :return:
+        Forward pass. We stack 1D convolution blocks,
+        then do maxpool to shape this as classification problem.
         """
 
-        # Layer 1
         out = self.dilated_conv1(x)
         out = self.relu(out)
 
-        self.out = out
-        
         out = self.convolution_blocks(out)
         out = self.conv_final(out)
         
