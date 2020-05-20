@@ -15,6 +15,8 @@ TRAIN_SET_SIZE = 0.85
 KERNEL_SIZE = 2
 GRAD_CLIPPING_VAL = 1
 CONFIG_LOCATION = '../ml_models_for_airflow/dbs3_config.ini'
+EARLY_STOPPING = 0.001
+EARLY_STOPPING_EPOCHS = 3
 
 # Read in config
 config = configparser.ConfigParser()
@@ -29,7 +31,7 @@ def define_model(trial):
     """
 
     dilation = trial.suggest_int('dilation', 1, 8)
-    depth = trial.suggest_int('depth', 1, 20)
+    depth = trial.suggest_int('depth', 1, 10)
 
     seq_length = trial.suggest_int('seq_length', 50, 200)
     out_channels = trial.suggest_int('out_channels', 2, 164)
@@ -131,6 +133,12 @@ def objective(trial):
                     test_y.numpy(), predictions.numpy())
 
         test_auc.append(temp_test_auc/len(test_generator))
+
+        # Early Stopping
+        if len(test_auc) > EARLY_STOPPING_EPOCHS:
+            if max([x[1]-x[0] for x in zip(test_auc[1:], test_auc[:-1])][-EARLY_STOPPING_EPOCHS:]) <= EARLY_STOPPING:
+                print('Training Stopped by Early Stopping!')
+                break
 
         if ep % 2 == 0: print('test auc:', test_auc[-1], ' epoch:', ep)
     
