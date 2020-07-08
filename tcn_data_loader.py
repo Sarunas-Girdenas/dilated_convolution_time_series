@@ -32,6 +32,8 @@ class TcnDataLoader(data.Dataset, BaseDataLoader):
 
         super(TcnDataLoader, self).__init__()
 
+        self.features = features
+
         config = configparser.ConfigParser()
         config.read(config_location)
 
@@ -84,9 +86,9 @@ class TcnDataLoader(data.Dataset, BaseDataLoader):
         # use only required columns
         features_data = data[features].copy()
 
-        # REMOVE minMax Scaler
-        scaler = MinMaxScaler()
-        transformed = scaler.fit_transform(features_data.values)
+        # minMax Scaler
+        self.scaler = MinMaxScaler()
+        transformed = self.scaler.fit_transform(features_data.values)
         features_data = pd.DataFrame(transformed, columns=features)
 
         self.labels = self._compute_labels(data=book_data, pairs=pairs, columns=('bidPrice', 'askPrice'))
@@ -94,7 +96,7 @@ class TcnDataLoader(data.Dataset, BaseDataLoader):
             lambda x: x.strftime(format='%Y-%m-%d %H:%M')
             )
         )
-        
+
         # index to merge labels with data
         features_data.index = pd.to_datetime(data['formatted_index'])
         features_data['symbol'] = data['symbol'].values
@@ -108,6 +110,23 @@ class TcnDataLoader(data.Dataset, BaseDataLoader):
         )
 
         return None
+    
+    @property
+    def features_used(self):
+        """
+        Returns features that were used to compute
+        sequence
+        """
+
+        return self.features
+
+    @property
+    def fitted_scaler(self):
+        """
+        Returns scaled used for pre-processing
+        """
+
+        return self.scaler
     
     def __len__(self):
         """

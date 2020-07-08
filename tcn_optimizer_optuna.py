@@ -8,6 +8,7 @@ from torch.utils import data
 import numpy as np
 from sklearn.metrics import accuracy_score, roc_auc_score
 import optuna
+import mlflow
 
 NUM_FEATURES = 5
 FEATURES = ['askPrice', 'bidPrice', 'bidQty/askQty', 'volume', 'priceChangePercent']
@@ -144,9 +145,28 @@ def objective(trial):
     
     return test_auc[-1]
 
+
+def mlflow_callback(study, trial):
+    """
+    Display values of the run in mlflow UI.
+    """
+
+    trial_value = trial.value if trial.value is not None else float("nan")
+    
+    with mlflow.start_run(run_name=study.study_name):
+        mlflow.log_params(trial.params)
+        mlflow.log_metrics({"test_auc_score": trial_value})
+
 if __name__ == '__main__':
+
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=100, timeout=12000, n_jobs=4)
+    study.optimize(
+        objective,
+        n_trials=100,
+        timeout=12000,
+        n_jobs=4,
+        callbacks=[mlflow_callback]
+    )
 
     print("Number of finished trials: {}".format(len(study.trials)))
 

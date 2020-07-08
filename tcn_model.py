@@ -2,6 +2,38 @@ import torch
 from torch import nn
 import numpy as np
 
+class CausalConv1d(torch.nn.Conv1d):
+    """
+    Causal 1D Convolution.
+    Based on https://github.com/pytorch/pytorch/issues/1333
+    """
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size,
+                 stride=1,
+                 dilation=1,
+                 groups=1,
+                 bias=True):
+        self.__padding = (kernel_size - 1) * dilation
+
+        super(CausalConv1d, self).__init__(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=self.__padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias)
+
+    def forward(self, input):
+        result = super(CausalConv1d, self).forward(input)
+        if self.__padding != 0:
+            return result[:, :, :-self.__padding]
+        return result
+
+
 class DilatedNet(nn.Module):
     def __init__(self, num_features=5, out_channels=64, 
                  dilation=2,
@@ -25,21 +57,24 @@ class DilatedNet(nn.Module):
         self.relu = nn.ReLU()
         
         # First Layer
-        self.dilated_conv1 = nn.Conv1d(
+        self.dilated_conv1 = CausalConv1d(
             num_features,
             out_channels,
             kernel_size=kernel_size,
             dilation=dilation)
 
         # calculate output size for the final feed forward layer
-        temp_out_shape = (seq_length + 2 * 0 - kernel_size - (kernel_size-1) * (dilation-1))/1 + 1
-        out_shape = int(temp_out_shape) - (depth * dilation)
+        # full formula is provided here: https://github.com/keras-team/keras/issues/8751
+        # technically our output size should be:
+        # out_shape = (seq_length + stride - 1) // stride
+        # since our stride = 1, we simplified formula below: 
+        out_shape = seq_length
         
         # 1D Convolution Blocks
         conv_blocks = []
         for _ in range(depth):
             conv_blocks.append(
-                nn.Conv1d(
+                CausalConv1d(
                     in_channels=out_channels,
                     out_channels=out_channels,
                     kernel_size=kernel_size,
@@ -50,7 +85,7 @@ class DilatedNet(nn.Module):
         
         self.convolution_blocks = nn.Sequential(*conv_blocks)
 
-        self.conv_final = nn.Conv1d(out_channels, out_channels, kernel_size=1)
+        self.conv_final = CausalConv1d(out_channels, out_channels, kernel_size=1)
         
         # Output Layer
         self.feed_forward = torch.nn.Linear(out_shape, 1)
